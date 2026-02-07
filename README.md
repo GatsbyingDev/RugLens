@@ -22,15 +22,6 @@ RugLens acts as a lightweight analysis layer on top of RugPlay’s on-chain inte
 const API_KEY = "YOUR_RUGPLAY_API_KEY";
 ````
 
-## Example Usage
-
-```js
-import { analyzeToken } from "./ruglens.js";
-
-const result = await analyzeToken("0xTOKEN_ADDRESS");
-console.log(result);
-```
-
 ## Output
 
 * Rug probability score
