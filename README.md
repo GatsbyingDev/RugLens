@@ -1,4 +1,3 @@
-````md
 # RugLens
 
 High-performance rugpull market analysis client powered by RugPlay.
