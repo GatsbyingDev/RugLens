@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rugplay — Institutional Market Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Syne', 'system-ui'], mono: ['IBM Plex Mono', 'monospace'] },
+                }
+            }
+        };
+    </script>
+    <style>
+        :root {
+            --bg-root: #030304;
+            --bg-surface: #0a0a0c;
+            --bg-elevated: #0f0f12;
+            --bg-card: #131318;
+            --bg-hover: #18181d;
+            --border: rgba(255,255,255,0.06);
+            --border-strong: rgba(255,255,255,0.1);
+            --text: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-tertiary: #71717a;
+            --positive: #10b981;
+            --negative: #f43f5e;
+            --accent: #0ea5e9;
+            --accent-hover: #38bdf8;
+            --glow: rgba(14,165,233,0.12);
+            --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.5);
+            --radius: 12px;
+            --radius-lg: 16px;
+        }
+        [data-theme="light"] {
+            --bg-root: #f8fafc;
+            --bg-surface: #fff;
+            --bg-elevated: #fff;
+            --bg-card: #f8fafc;
+            --bg-hover: #f1f5f9;
+            --border: rgba(0,0,0,0.08);
+            --border-strong: rgba(0,0,0,0.12);
+            --text: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #64748b;
+            --positive: #059669;
+            --negative: #e11d48;
+            --accent: #0284c7;
+            --accent-hover: #0ea5e9;
+            --glow: rgba(2,132,199,0.08);
+            --shadow-lg: 0 25px 50px -12px rgba(0,0,0,0.12);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg-root);
+            color: var(--text);
+            font-family: 'Syne', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse 120% 80% at 50% -20%, var(--glow), transparent 50%), radial-gradient(ellipse 80% 50% at 100% 50%, rgba(14,165,233,0.04), transparent 40%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .font-mono { font-family: 'IBM Plex Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+        .num { font-variant-numeric: tabular-nums; text-align: right; }
+        .cell-positive { color: var(--positive); }
+        .cell-negative { color: var(--negative); }
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+        }
+        .panel-premium {
+            background: linear-gradient(145deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.02) inset;
+        }
+        .panel-premium.card-hover:hover { box-shadow: 0 12px 40px -12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.03) inset; }
+        .btn-primary { background: var(--accent); color: #fff; border: none; font-weight: 600; }
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 0 24px var(--glow); }
+        .btn-primary.btn-interact:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn-primary.btn-interact:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        .btn-ghost { background: transparent; color: var(--text-secondary); }
+        .btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+        .btn-ghost.btn-interact:active { transform: scale(0.97); }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.05); } }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--positive); animation: pulse-dot 2s ease-in-out infinite; box-shadow: 0 0 12px var(--positive); }
+        .heat-cell { transition: background 0.2s, color 0.2s, transform 0.15s; }
+        .heat-cell:hover { transform: scale(1.02); }
+        .brand-text { font-weight: 800; letter-spacing: -0.04em; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInScale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideInBottom { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @keyframes glow-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--positive); } 50% { opacity: 0.85; box-shadow: 0 0 20px var(--positive); } }
+        @keyframes listItemIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes chartReveal { from { opacity: 0; transform: scaleY(0.95); } to { opacity: 1; transform: scaleY(1); } }
+
+        .ease-out-expo { transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+        .ease-spring { transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .ease-smooth { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+
+        .animate-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-in-up { opacity: 0; animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-modal { animation: fadeInScale 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .animate-slide-right { animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-slide-bottom { animation: slideInBottom 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-backdrop { animation: backdropIn 0.25s ease-out forwards; }
+        .animate-list-item { opacity: 0; animation: listItemIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-chart { animation: chartReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .skeleton-shine { background: linear-gradient(90deg, var(--bg-hover) 0%, var(--border-strong) 50%, var(--bg-hover) 100%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
+
+        .btn-interact { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease; }
+        .card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.2s ease; }
+        .card-hover:hover { transform: translateY(-2px); }
+        .row-hover { transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
+        .row-hover:hover { transform: translateX(2px); }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--positive); animation: glow-pulse 2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useCallback, useMemo } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        import { ComposedChart, Area, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'https://esm.sh/recharts@2.12.2?deps=react@18.2.0,react-dom@18.2.0';
+        import { TrendingUp, TrendingDown, Activity, AlertTriangle, Search, Zap, Brain, RefreshCw, X, Star, ArrowUpDown, Sparkles, Key, Settings, Sun, Moon, Download, Copy, Maximize2, Minimize2, Clock, Bell, GitCompare, LayoutGrid, Table2, HelpCircle } from 'https://esm.sh/lucide-react@0.344.0?deps=react@18.2.0';
+
+        const GEMINI_API_KEY = "AIzaSyCvAK8qPAlTAhwideekzJoGyRQIjiWB0ek";
+        const APP_VERSION = "3.0.0";
+        const proxyUrl = 'https://rplsend.powerstudios.workers.dev/?url=';
+
+        function formatPrice(n) { return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }); }
+        function formatPct(n) { const x = Number(n); return (x >= 0 ? '+' : '') + x.toFixed(2) + '%'; }
+        function formatCompact(n) { const x = Number(n); if (x >= 1e6) return (x / 1e6).toFixed(1) + 'M'; if (x >= 1e3) return (x / 1e3).toFixed(1) + 'K'; return x.toFixed(0); }
+
+        const Toast = ({ id, message, type, onDismiss }) => (
+            <div className="flex items-center gap-3 panel-premium px-4 py-3 min-w-[280px] border-l-4" style={{ borderLeftColor: type === 'success' ? 'var(--positive)' : type === 'error' ? 'var(--negative)' : 'var(--border-strong)' }}>
+                <span className="text-sm font-medium flex-1">{message}</span>
+                <button type="button" onClick={() => onDismiss(id)} className="text-[var(--text-tertiary)] hover:text-[var(--text)] p-1 rounded transition-colors"><X size={14} /></button>
+            </div>
+        );
+
+        const RugplayAnalyzer = () => {
+            const [apiKey, setApiKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('rugplay_apikey') || '' : '');
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [viewMode, setViewMode] = useState('table');
+            const [chartType, setChartType] = useState(() => localStorage.getItem('rugplay_chart_type') || 'area');
+            const [chartTimeframe, setChartTimeframe] = useState(() => localStorage.getItem('rugplay_chart_tf') || '1h');
+            const [isLoading, setIsLoading] = useState(false);
+            const [isDetailLoading, setIsDetailLoading] = useState(false);
+            const [isAiLoading, setIsAiLoading] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [sortOption, setSortOption] = useState('default');
+            const [watchlist, setWatchlist] = useState(() => {
+                try { const s = localStorage.getItem('rugplay_watchlist'); return s ? JSON.parse(s) : []; } catch (_) { return []; }
+            });
+            const [marketData, setMarketData] = useState([]);
+            const [predictionMarkets, setPredictionMarkets] = useState([]);
+            const [selectedItem, setSelectedItem] = useState(null);
+            const [chartData, setChartData] = useState([]);
+            const [analysisResult, setAnalysisResult] = useState(null);
+            const [error, setError] = useState(null);
+            const [lastUpdated, setLastUpdated] = useState(null);
+            const [connectionStatus, setConnectionStatus] = useState('idle');
+            const [showResultModal, setShowResultModal] = useState(false);
+            const [showErrorModal, setShowErrorModal] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            const [showShortcuts, setShowShortcuts] = useState(false);
+            const [showAlertForm, setShowAlertForm] = useState(false);
+            const [fullScreenChart, setFullScreenChart] = useState(false);
+            const [toasts, setToasts] = useState([]);
+            const [theme, setTheme] = useState(() => localStorage.getItem('rugplay_theme') || 'dark');
+            const [refreshIntervalSec, setRefreshIntervalSec] = useState(() => parseInt(localStorage.getItem('rugplay_refresh') || '60', 10));
+            const [showApiKey, setShowApiKey] = useState(false);
+            const [compareList, setCompareList] = useState([]);
+            const [alerts, setAlerts] = useState(() => {
+                try { const s = localStorage.getItem('rugplay_alerts'); return s ? JSON.parse(s) : []; } catch (_) { return []; }
+            });
+
+            const addToast = useCallback((message, type = 'info') => {
+                const id = Date.now();
+                setToasts(t => [...t, { id, message, type }]);
+                setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4500);
+            }, []);
+
+            useEffect(() => { try { localStorage.setItem('rugplay_watchlist', JSON.stringify(watchlist)); } catch (_) {} }, [watchlist]);
+            useEffect(() => { try { if (apiKey) localStorage.setItem('rugplay_apikey', apiKey); } catch (_) {} }, [apiKey]);
+            useEffect(() => { try { localStorage.setItem('rugplay_theme', theme); } catch (_) {} }, [theme]);
+            useEffect(() => { try { localStorage.setItem('rugplay_refresh', String(refreshIntervalSec)); } catch (_) {} }, [refreshIntervalSec]);
+            useEffect(() => { try { localStorage.setItem('rugplay_chart_tf', chartTimeframe); } catch (_) {} }, [chartTimeframe]);
+            useEffect(() => { try { localStorage.setItem('rugplay_chart_type', chartType); } catch (_) {} }, [chartType]);
+            useEffect(() => { try { localStorage.setItem('rugplay_alerts', JSON.stringify(alerts)); } catch (_) {} }, [alerts]);
+            useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+
+            const getUrl = useCallback((endpoint) => proxyUrl ? `${proxyUrl}${encodeURIComponent(endpoint)}` : endpoint, []);
+
+            const fetchOverview = useCallback(async () => {
+                if (!apiKey.trim()) return;
+                setIsLoading(true);
+                setConnectionStatus('connecting');
+                let key = apiKey.trim();
+                if (key.toLowerCase().startsWith('bearer ')) key = key.slice(7).trim();
+                const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
+                try {
+                    const coinsRes = await fetch(getUrl('https://rugplay.com/api/v1/top'), { headers });
+                    if (coinsRes.status === 401) throw new Error("Unauthorized: API key rejected.");
+                    if (!coinsRes.ok) throw new Error(`Coins API: ${coinsRes.status}`);
+                    const coinsJson = await coinsRes.json();
+                    setMarketData(coinsJson.coins || []);
+
+                    const hopiumRes = await fetch(getUrl('https://rugplay.com/api/v1/hopium?status=ACTIVE&limit=20'), { headers });
+                    if (hopiumRes.status === 401) throw new Error("Unauthorized: API key rejected.");
+                    if (!hopiumRes.ok) throw new Error(`Hopium API: ${hopiumRes.status}`);
+                    const hopiumJson = await hopiumRes.json();
+                    setPredictionMarkets(hopiumJson.questions || []);
+
+                    setError(null);
+                    setLastUpdated(new Date());
+                    setConnectionStatus('live');
+                } catch (err) {
+                    console.error(err);
+                    let msg = err.message || "Connection failed.";
+                    if (String(err.message).includes('Failed to fetch')) msg = "Network error. Check proxy or connection.";
+                    setError(msg);
+                    setConnectionStatus('error');
+                    setShowErrorModal(true);
+                } finally {
+                    setIsLoading(false);
+                }
+            }, [apiKey, getUrl]);
+
+            useEffect(() => {
+                if (!apiKey.trim()) return;
+                fetchOverview();
+                const t = setInterval(fetchOverview, refreshIntervalSec * 1000);
+                return () => clearInterval(t);
+            }, [apiKey, refreshIntervalSec, fetchOverview]);
+
+            const fetchDetails = useCallback(async (item, type) => {
+                if (!apiKey.trim()) return;
+                let key = apiKey.trim();
+                if (key.toLowerCase().startsWith('bearer ')) key = key.slice(7).trim();
+                const headers = { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' };
+                setSelectedItem({ ...item, type });
+                setIsDetailLoading(true);
+                setChartData([]);
+                setAnalysisResult(null);
+                try {
+                    let history = [];
+                    const tf = chartTimeframe === '24h' ? '24h' : '1h';
+                    if (type === 'coin') {
+                        const res = await fetch(getUrl(`https://rugplay.com/api/v1/coin/${item.symbol}?timeframe=${tf}`), { headers });
+                        if (res.status === 401) throw new Error("Unauthorized");
+                        if (!res.ok) throw new Error(`Error: ${res.status}`);
+                        const data = await res.json();
+                        if (data.candlestickData && Array.isArray(data.candlestickData)) {
+                            history = data.candlestickData.map(c => {
+                                const volItem = data.volumeData && data.volumeData.find(v => v.time === c.time);
+                                return { time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), value: c.close, open: c.open, high: c.high, low: c.low, volume: volItem ? volItem.volume : 0, trend: c.close >= c.open ? 'up' : 'down' };
+                            });
+                        }
+                        analyzeTarget(data.coin || item, 'coin');
+                    } else {
+                        const res = await fetch(getUrl(`https://rugplay.com/api/v1/hopium/${item.id}`), { headers });
+                        if (res.status === 401) throw new Error("Unauthorized");
+                        if (!res.ok) throw new Error(`Error: ${res.status}`);
+                        const data = await res.json();
+                        if (data.probabilityHistory && Array.isArray(data.probabilityHistory)) {
+                            history = data.probabilityHistory.map((p, i, arr) => {
+                                const prev = arr[i - 1];
+                                return { time: new Date(p.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), value: p.value, volume: prev ? Math.abs(p.value - prev.value) * 1000 : 0, trend: prev && p.value >= prev.value ? 'up' : 'down' };
+                            });
+                        }
+                        analyzeTarget(data.question || item, 'prediction');
+                    }
+                    setChartData(history);
+                    addToast("Data loaded", "success");
+                } catch (err) {
+                    console.error(err);
+                    setError(err.message);
+                    setConnectionStatus('error');
+                    setShowErrorModal(true);
+                } finally {
+                    setIsDetailLoading(false);
+                }
+            }, [apiKey, getUrl, chartTimeframe, addToast]);
+
+            useEffect(() => {
+                const handle = (e) => {
+                    if (e.key === 'Escape') { setShowResultModal(false); setShowErrorModal(false); setShowSettings(false); setShowShortcuts(false); setFullScreenChart(false); setShowAlertForm(false); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') { e.preventDefault(); fetchOverview(); addToast("Refreshed"); }
+                    if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) { e.preventDefault(); document.querySelector('[data-search-input]')?.focus(); }
+                    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); setShowShortcuts(true); }
+                };
+                window.addEventListener('keydown', handle);
+                return () => window.removeEventListener('keydown', handle);
+            }, [fetchOverview, addToast]);
+
+            const runAiAnalysis = useCallback(async () => {
+                if (!selectedItem || !GEMINI_API_KEY) { setError("AI requires a Gemini API key."); setShowErrorModal(true); return; }
+                setIsAiLoading(true);
+                try {
+                    const type = selectedItem.type === 'coin' ? 'crypto coin' : 'prediction market';
+                    const contextData = { item: selectedItem, recentChart: chartData.slice(-5) };
+                    const prompt = `Analyze this game ${type} data as a cynical, witty crypto trader. Data: ${JSON.stringify(contextData)}. Output only valid JSON: { "sentiment": "Bullish"|"Bearish"|"Neutral", "riskScore": 0-100, "prediction": "Short 2-3 word prediction", "details": "Witty sentence max 20 words" }`;
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
+                    });
+                    if (!res.ok) throw new Error("AI request failed");
+                    const result = await res.json();
+                    const raw = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!raw || typeof raw !== 'string') throw new Error("Invalid AI response");
+                    const cleaned = raw.replace(/```json\s*|\s*```/g, '').trim();
+                    const aiData = JSON.parse(cleaned);
+                    setAnalysisResult({ target: selectedItem.name || selectedItem.question || selectedItem.symbol, type: selectedItem.type === 'coin' ? 'Token Analysis' : 'Hopium Analysis', sentiment: aiData.sentiment || 'Neutral', riskScore: Number(aiData.riskScore) || 50, prediction: aiData.prediction || '—', confidence: 99, details: aiData.details || '—', isWhale: false, isAi: true });
+                    setShowResultModal(true);
+                    addToast("AI analysis complete", "success");
+                } catch (err) {
+                    console.error(err);
+                    setError("AI analysis failed. Check console.");
+                    setShowErrorModal(true);
+                } finally {
+                    setIsAiLoading(false);
+                }
+            }, [selectedItem, chartData, addToast]);
+
+            function analyzeTarget(data, type) {
+                const isCoin = type === 'coin';
+                let prediction = "NEUTRAL", sentiment = "Neutral", riskScore = 50, details = "Insufficient data.", isWhale = false;
+                if (isCoin) {
+                    const vol = Number(data.volume24h) || 0, change = Number(data.change24h) || 0, mcap = Number(data.marketCap) || 0;
+                    if (vol > mcap * 0.1 && vol > 10000) isWhale = true;
+                    riskScore = Math.min(99, Math.abs(change) / 10 + (mcap < 10000 ? 50 : 0));
+                    if (change > 20 && vol > 10000) { sentiment = "Bullish"; prediction = "MOMENTUM UP"; details = "High volume breakout."; }
+                    else if (change < -15) { sentiment = "Bearish"; prediction = "OVERSOLD"; details = "Sharp decline."; }
+                    else { sentiment = "Neutral"; prediction = "HOLD"; details = "Consolidating."; }
+                } else {
+                    const yes = Number(data.yesPercentage) || 50, totalPot = Number(data.totalAmount) || 0;
+                    if (totalPot > 50000) isWhale = true;
+                    riskScore = totalPot < 100 ? 80 : 20;
+                    if (yes > 85) { sentiment = "Bullish (Yes)"; prediction = "PREDICT: YES"; details = "Strong consensus."; }
+                    else if (yes < 15) { sentiment = "Bearish (No)"; prediction = "PREDICT: NO"; details = "Market rejected."; }
+                    else { sentiment = "Uncertain"; prediction = "VOLATILE"; details = "Too close."; }
+                }
+                setAnalysisResult({ target: isCoin ? (data.name || data.symbol) : "Market Question", type: isCoin ? 'Token Analysis' : 'Hopium Analysis', sentiment, riskScore: Math.floor(riskScore), prediction, confidence: 75, details, isWhale, isAi: false });
+            }
+
+            const getProcessedList = useCallback(() => {
+                let list = activeTab === 'dashboard' ? [...marketData] : activeTab === 'predictions' ? [...predictionMarkets] : null;
+                if (activeTab === 'watchlist') return { coins: marketData.filter(c => watchlist.includes(c.symbol)), preds: predictionMarkets.filter(p => watchlist.includes(p.id)) };
+                if (!list) return [];
+                if (searchQuery.trim()) list = list.filter(item => {
+                    const name = (item.name || item.question || '').toLowerCase();
+                    const sym = (item.symbol || '').toLowerCase();
+                    const q = searchQuery.trim().toLowerCase();
+                    return name.includes(q) || sym.includes(q);
+                });
+                if (sortOption === 'gainers') list.sort((a, b) => (Number(b.change24h) || 0) - (Number(a.change24h) || 0));
+                else if (sortOption === 'losers') list.sort((a, b) => (Number(a.change24h) || 0) - (Number(b.change24h) || 0));
+                else if (sortOption === 'volume') list.sort((a, b) => (Number(b.volume24h || b.totalAmount) || 0) - (Number(a.volume24h || a.totalAmount) || 0));
+                return list;
+            }, [activeTab, marketData, predictionMarkets, watchlist, searchQuery, sortOption]);
+            const processedList = getProcessedList();
+
+            const overview = useMemo(() => {
+                const coins = marketData;
+                const totalVol = coins.reduce((s, c) => s + (Number(c.volume24h) || 0), 0);
+                const withChange = coins.filter(c => c != null && (Number(c.change24h) || 0) !== 0);
+                const topGainer = withChange.length ? withChange.reduce((a, b) => (Number(a.change24h) || 0) >= (Number(b.change24h) || 0) ? a : b) : null;
+                const topLoser = withChange.length ? withChange.reduce((a, b) => (Number(a.change24h) || 0) <= (Number(b.change24h) || 0) ? a : b) : null;
+                return { totalVol, coinsCount: coins.length, predsCount: predictionMarkets.length, topGainer, topLoser };
+            }, [marketData, predictionMarkets]);
+
+            const toggleWatchlist = (e, id) => {
+                e.stopPropagation();
+                setWatchlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                addToast(watchlist.includes(id) ? "Removed from watchlist" : "Added to watchlist", "success");
+            };
+
+            const addToCompare = (e, item, type) => {
+                e.stopPropagation();
+                const id = type === 'coin' ? item.symbol : item.id;
+                setCompareList(prev => {
+                    if (prev.some(x => x.id === id)) return prev.filter(x => x.id !== id);
+                    if (prev.length >= 2) return [...prev.slice(1), { ...item, type, id }];
+                    return [...prev, { ...item, type, id }];
+                });
+            };
+
+            const addAlert = (symbol, condition, value) => {
+                setAlerts(prev => [...prev, { id: Date.now(), symbol, condition, value }]);
+                setShowAlertForm(false);
+                addToast("Alert added", "success");
+            };
+
+            useEffect(() => {
+                if (!marketData.length || !alerts.length) return;
+                alerts.forEach(a => {
+                    const coin = marketData.find(c => c.symbol === a.symbol);
+                    if (!coin) return;
+                    const price = Number(coin.price || coin.currentPrice) || 0;
+                    const v = Number(a.value) || 0;
+                    const hit = a.condition === 'above' ? price >= v : price <= v;
+                    if (hit) addToast(`${a.symbol} ${a.condition === 'above' ? '≥' : '≤'} ${v}`, "info");
+                });
+            }, [marketData, alerts]);
+
+            const exportData = (format) => {
+                const list = activeTab === 'watchlist' ? [...(processedList.coins || []), ...(processedList.preds || [])] : (Array.isArray(processedList) ? processedList : []);
+                if (!list.length) { addToast("No data to export", "error"); return; }
+                const isCoin = activeTab === 'dashboard' || (activeTab === 'watchlist' && (processedList.coins?.length || 0) > 0);
+                if (format === 'csv') {
+                    const headers = isCoin ? 'Symbol,Name,Price,24h Change,Volume\n' : 'ID,Question,Yes %,Total\n';
+                    const rows = list.map(item => isCoin ? `${item.symbol},"${(item.name||'').replace(/"/g,'""')}",${item.price||item.currentPrice},${item.change24h||0},${item.volume24h||0}` : `${item.id},"${(item.question||'').replace(/"/g,'""')}",${item.yesPercentage||0},${item.totalAmount||0}`);
+                    const blob = new Blob([headers + rows.join('\n')], { type: 'text/csv' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `rugplay_${activeTab}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
+                } else {
+                    const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `rugplay_${activeTab}_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+                }
+                addToast(`${format.toUpperCase()} exported`, "success");
+            };
+
+            const copyToClipboard = (e, text, label) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(String(text)).then(() => addToast(`${label} copied`), () => addToast("Copy failed", "error"));
+            };
+
+            const chartColors = useMemo(() => {
+                if (chartData.length < 2) return { stroke: 'var(--accent)', fill: 'var(--accent)' };
+                const start = chartData[0].value, end = chartData[chartData.length - 1].value;
+                return end >= start ? { stroke: 'var(--positive)', fill: 'var(--positive)' } : { stroke: 'var(--negative)', fill: 'var(--negative)' };
+            }, [chartData]);
+
+            const CustomTooltip = ({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                    <div className="panel px-3 py-2 text-xs font-mono space-y-1 min-w-[140px]">
+                        <div className="text-zinc-400">{d.time}</div>
+                        <div className="flex justify-between gap-4"><span className="text-zinc-500">Price</span><span className="num">{formatPrice(d.value)}</span></div>
+                        {d.high != null && <div className="flex justify-between gap-4"><span className="text-zinc-500">High</span><span className="num cell-positive">{formatPrice(d.high)}</span></div>}
+                        {d.low != null && <div className="flex justify-between gap-4"><span className="text-zinc-500">Low</span><span className="num cell-negative">{formatPrice(d.low)}</span></div>}
+                        {d.volume > 0 && <div className="flex justify-between gap-4 border-t border-zinc-700 pt-1"><span className="text-zinc-500">Vol</span><span className="num">{formatCompact(d.volume)}</span></div>}
+                    </div>
+                );
+            };
+
+            const SkeletonRow = () => (
+                <div className="px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded skeleton-shine" />
+                        <div className="w-8 h-8 rounded skeleton-shine" />
+                        <div className="h-4 w-24 rounded skeleton-shine" />
+                    </div>
+                    <div className="h-4 w-20 rounded skeleton-shine" />
+                </div>
+            );
+
+            const ListItem = ({ item, type, index = 0 }) => {
+                const isCoin = type === 'coin';
+                const id = isCoin ? item.symbol : item.id;
+                const isWatched = watchlist.includes(id);
+                const isCompared = compareList.some(x => x.id === id);
+                const price = isCoin ? (item.price ?? item.currentPrice) : null;
+                const change = Number(item.change24h);
+                return (
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => fetchDetails(item, type)}
+                        onKeyDown={(e) => e.key === 'Enter' && fetchDetails(item, type)}
+                        className={`group px-5 py-3.5 flex items-center justify-between border-b border-[var(--border)] cursor-pointer hover:bg-[var(--bg-hover)] row-hover animate-list-item ${selectedItem?.symbol === item.symbol || selectedItem?.id === item.id ? 'bg-[var(--accent)]/10 border-l-[3px] border-l-[var(--accent)]' : 'border-l-[3px] border-l-transparent'}`}
+                        style={{ animationDelay: `${Math.min(index * 0.03, 0.4)}s` }}
+                    >
+                        <div className="flex items-center gap-3 min-w-0">
+                            <button type="button" onClick={(e) => toggleWatchlist(e, id)} className="shrink-0 text-zinc-500 hover:text-amber-400 p-1" aria-label={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
+                                <Star size={14} fill={isWatched ? "#f59e0b" : "none"} className={isWatched ? "text-amber-400" : ""} />
+                            </button>
+                            <button type="button" onClick={(e) => addToCompare(e, item, type)} className={`shrink-0 p-1 ${isCompared ? 'text-[var(--accent)]' : 'text-zinc-500 hover:text-zinc-300'}`} aria-label="Compare"><GitCompare size={14} /></button>
+                            {isCoin ? (
+                                <>
+                                    <div className="w-8 h-8 rounded bg-[var(--bg-surface)] border border-[var(--border)] flex items-center justify-center text-xs font-mono font-semibold text-zinc-400">{String(item.symbol || '?')[0]}</div>
+                                    <div className="min-w-0">
+                                        <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                                            <span className="font-mono">{item.symbol}</span>
+                                            <button type="button" onClick={(e) => copyToClipboard(e, item.symbol, 'Symbol')} className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-500 hover:text-zinc-300"><Copy size={10} /></button>
+                                        </div>
+                                        <div className="text-xs text-zinc-500 truncate">{item.name}</div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="min-w-0">
+                                    <div className="font-medium text-sm truncate max-w-[200px]">{item.question}</div>
+                                    <div className="text-xs text-zinc-500 font-mono">YES {item.yesPercentage}% · ${formatCompact(item.totalAmount || 0)}</div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="shrink-0 text-right font-mono text-sm">
+                            {isCoin ? (
+                                <>
+                                    <div className="text-zinc-300 flex items-center justify-end gap-1">
+                                        ${formatPrice(price)}
+                                        <button type="button" onClick={(e) => copyToClipboard(e, price, 'Price')} className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-500"><Copy size={10} /></button>
+                                    </div>
+                                    <div className={`num text-xs font-semibold ${change >= 0 ? 'cell-positive' : 'cell-negative'}`}>{formatPct(change)}</div>
+                                </>
+                            ) : <span className="text-zinc-500">#{item.id}</span>}
+                        </div>
+                    </div>
+                );
+            };
+
+            const ChartBlock = ({ height }) => (
+                <div className={`rounded border border-[var(--border)] overflow-hidden bg-[var(--bg-surface)] ${height != null ? '' : 'h-full min-h-[200px]'}`} style={height != null ? { height } : {}}>
+                    {chartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={height != null ? height : '100%'}>
+                            <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                                <defs><linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColors.stroke} stopOpacity={0.25}/><stop offset="100%" stopColor={chartColors.stroke} stopOpacity={0}/></linearGradient></defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                                <Tooltip content={<CustomTooltip />} />
+                                <YAxis hide domain={['auto', 'auto']} />
+                                {chartType === 'area' ? <Area type="monotone" dataKey="value" stroke={chartColors.stroke} strokeWidth={1.5} fill="url(#chartGrad)" isAnimationActive={true} animationDuration={800} animationEasing="ease-out" /> : <Line type="monotone" dataKey="value" stroke={chartColors.stroke} strokeWidth={1.5} dot={false} isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />}
+                                {chartData.length > 0 && <ReferenceLine y={chartData[0].value} stroke="var(--border-strong)" strokeDasharray="2 2" />}
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-zinc-500 text-xs font-mono">No data</div>}
+                </div>
+            );
+
+            const heatmapData = useMemo(() => {
+                if (activeTab !== 'dashboard' || !Array.isArray(processedList)) return [];
+                return processedList.slice(0, 24).map(c => ({ symbol: c.symbol, change: Number(c.change24h) || 0 }));
+            }, [activeTab, processedList]);
+
+            return (
+                <div className="min-h-screen flex flex-col relative z-10">
+                    <div className="flex items-center justify-between px-6 py-2.5 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur-xl text-xs font-mono text-[var(--text-tertiary)]">
+                        <div className="flex items-center gap-5">
+                            <span className="flex items-center gap-2">
+                                <span className={`live-dot ${connectionStatus === 'live' ? '' : 'opacity-60'}`} style={{ background: connectionStatus === 'error' ? 'var(--negative)' : connectionStatus === 'connecting' ? '#eab308' : 'var(--positive)' }} />
+                                <span className="font-medium">{connectionStatus === 'live' ? 'Live' : connectionStatus === 'connecting' ? 'Updating…' : 'Connection error'}</span>
+                            </span>
+                            {lastUpdated && <span className="flex items-center gap-1.5 text-[var(--text-secondary)]"><Clock size={12} /> {lastUpdated.toLocaleTimeString()}</span>}
+                        </div>
+                        <span className="text-[var(--text-tertiary)]">v{APP_VERSION}</span>
+                    </div>
+
+                    {toasts.length > 0 && (
+                        <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3">
+                            {toasts.map((t, i) => <div key={t.id} className="animate-slide-bottom" style={{ animationDelay: `${i * 0.06}s` }}><Toast {...t} onDismiss={(id) => setToasts(prev => prev.filter(x => x.id !== id))} /></div>)}
+                        </div>
+                    )}
+
+                    {showResultModal && analysisResult && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-backdrop" onClick={() => setShowResultModal(false)}>
+                            <div className="panel-premium max-w-md w-full p-8 shadow-2xl animate-modal origin-center" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">{analysisResult.type}</span>
+                                    <button type="button" onClick={() => setShowResultModal(false)} className="text-zinc-500 hover:text-zinc-300 p-1"><X size={18} /></button>
+                                </div>
+                                <h2 className="text-xl font-semibold mb-4">{analysisResult.target}</h2>
+                                <div className="border border-[var(--border)] rounded p-4 mb-4 bg-[var(--bg-surface)]">
+                                    <div className="text-xs text-zinc-500 mb-1">Prediction</div>
+                                    <div className={`font-mono text-2xl font-semibold ${analysisResult.prediction.includes('YES') || analysisResult.prediction.includes('UP') ? 'cell-positive' : analysisResult.prediction.includes('NO') || analysisResult.prediction.includes('AVOID') ? 'cell-negative' : 'text-zinc-300'}`}>{analysisResult.prediction}</div>
+                                    <p className="text-sm text-zinc-400 mt-2">"{analysisResult.details}"</p>
+                                </div>
+                                <div className="flex gap-4 text-sm">
+                                    <span><span className="text-zinc-500">Signal</span> <span className="font-medium">{analysisResult.sentiment}</span></span>
+                                    <span><span className="text-zinc-500">Risk</span> <span className="font-mono font-medium">{analysisResult.riskScore}/100</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showErrorModal && error && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-backdrop" onClick={() => setShowErrorModal(false)}>
+                            <div className="panel-premium max-w-md w-full p-8 border border-[var(--negative)]/30 animate-modal origin-center" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <AlertTriangle size={24} className="text-[var(--negative)] shrink-0" />
+                                    <h3 className="font-semibold">Error</h3>
+                                    <button type="button" onClick={() => setShowErrorModal(false)} className="ml-auto p-1 text-zinc-500 hover:text-zinc-300"><X size={18} /></button>
+                                </div>
+                                <p className="text-sm text-zinc-400 mb-4">{error}</p>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => { setShowErrorModal(false); fetchOverview(); }} className="btn-primary btn-interact px-4 py-2 rounded text-sm font-medium">Retry</button>
+                                    <button type="button" onClick={() => setShowErrorModal(false)} className="btn-ghost btn-interact px-4 py-2 rounded text-sm">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showSettings && (
+                        <div className="fixed inset-0 z-50 flex justify-end">
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-backdrop" onClick={() => setShowSettings(false)} aria-hidden="true" />
+                            <div className="relative w-full max-w-sm panel-premium border-l border-[var(--border)] overflow-y-auto animate-slide-right">
+                                <div className="sticky top-0 flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--bg-elevated)]">
+                                    <h2 className="font-semibold flex items-center gap-2"><Settings size={18} /> Settings</h2>
+                                    <button type="button" onClick={() => setShowSettings(false)} className="p-2 text-zinc-500 hover:text-zinc-300 rounded"><X size={18} /></button>
+                                </div>
+                                <div className="p-4 space-y-6">
+                                    <section>
+                                        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Theme</h3>
+                                        <div className="flex gap-2">
+                                            {['dark', 'light'].map(t => (
+                                                <button key={t} type="button" onClick={() => setTheme(t)} className={`flex items-center gap-2 px-3 py-2 rounded border text-sm ${theme === t ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] text-zinc-400 hover:text-zinc-300'}`}>{t === 'dark' ? <Moon size={14} /> : <Sun size={14} />}{t}</button>
+                                            ))}
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Data</h3>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center"><span className="text-sm">Refresh</span><select value={refreshIntervalSec} onChange={(e) => setRefreshIntervalSec(Number(e.target.value))} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1 text-sm font-mono">{[30, 60, 120, 300].map(n => <option key={n} value={n}>{n === 60 ? '1 min' : n === 300 ? '5 min' : `${n}s`}</option>)}</select></div>
+                                            <div className="flex justify-between items-center"><span className="text-sm">Chart</span><select value={chartTimeframe} onChange={(e) => setChartTimeframe(e.target.value)} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1 text-sm font-mono"><option value="1h">1H</option><option value="24h">24H</option></select></div>
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <label className="flex items-center justify-between cursor-pointer text-sm"><span>Show API key</span><input type="checkbox" checked={showApiKey} onChange={(e) => setShowApiKey(e.target.checked)} className="rounded border-[var(--border)] bg-[var(--bg-surface)]" /></label>
+                                    </section>
+                                    <section>
+                                        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shortcuts</h3>
+                                        <ul className="text-xs font-mono text-zinc-500 space-y-1"><li><kbd className="px-1.5 py-0.5 bg-[var(--bg-surface)] rounded">Ctrl+R</kbd> Refresh</li><li><kbd className="px-1.5 py-0.5 bg-[var(--bg-surface)] rounded">/</kbd> Search</li><li><kbd className="px-1.5 py-0.5 bg-[var(--bg-surface)] rounded">Esc</kbd> Close</li><li><kbd className="px-1.5 py-0.5 bg-[var(--bg-surface)] rounded">?</kbd> Shortcuts</li></ul>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showShortcuts && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop" onClick={() => setShowShortcuts(false)}>
+                            <div className="panel-premium max-w-sm w-full p-6 animate-modal origin-center" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center mb-4"><h2 className="font-semibold flex items-center gap-2"><HelpCircle size={18} /> Shortcuts</h2><button type="button" onClick={() => setShowShortcuts(false)} className="p-1 text-zinc-500"><X size={18} /></button></div>
+                                <ul className="space-y-2 text-sm font-mono"><li className="flex justify-between"><span className="text-zinc-400">Refresh</span><kbd className="px-2 py-0.5 bg-[var(--bg-surface)] rounded">Ctrl+R</kbd></li><li className="flex justify-between"><span className="text-zinc-400">Search</span><kbd className="px-2 py-0.5 bg-[var(--bg-surface)] rounded">/</kbd></li><li className="flex justify-between"><span className="text-zinc-400">Close</span><kbd className="px-2 py-0.5 bg-[var(--bg-surface)] rounded">Esc</kbd></li><li className="flex justify-between"><span className="text-zinc-400">This panel</span><kbd className="px-2 py-0.5 bg-[var(--bg-surface)] rounded">?</kbd></li></ul>
+                            </div>
+                        </div>
+                    )}
+
+                    {fullScreenChart && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-backdrop" onClick={() => setFullScreenChart(false)}>
+                            <div className="w-full max-w-5xl h-[85vh] panel-premium flex flex-col animate-modal origin-center" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between p-4 border-b border-[var(--border)] shrink-0"><span className="font-mono font-medium">{selectedItem?.name || selectedItem?.question || selectedItem?.symbol} — Price</span><button type="button" onClick={() => setFullScreenChart(false)} className="p-2 btn-ghost rounded"><Minimize2 size={18} /></button></div>
+                                <div className="flex-1 flex flex-col p-4 min-h-0"><ChartBlock /></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <header className="border-b border-[var(--border)] bg-[var(--bg-surface)]/80 backdrop-blur-xl px-6 py-6">
+                        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                            <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] flex items-center justify-center shadow-[var(--shadow-lg)]">
+                                    <Activity size={26} className="text-[var(--accent)]" />
+                                </div>
+                                <div>
+                                    <h1 className="brand-text text-2xl md:text-3xl text-[var(--text)]">Rugplay</h1>
+                                    <p className="text-sm font-mono text-[var(--text-tertiary)] mt-0.5 tracking-wide">Institutional Market Analytics</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-3 border border-[var(--border)] rounded-[var(--radius)] bg-[var(--bg-card)] px-4 py-2.5">
+                                    <Key size={16} className={apiKey ? 'text-[var(--positive)]' : 'text-[var(--text-tertiary)]'} />
+                                    <input type={showApiKey ? 'text' : 'password'} placeholder="API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="bg-transparent border-none text-sm font-mono w-36 md:w-44 focus:outline-none placeholder:text-[var(--text-tertiary)]" />
+                                </div>
+                                <button type="button" onClick={fetchOverview} disabled={isLoading || !apiKey.trim()} className="p-2.5 border border-[var(--border)] rounded-[var(--radius)] btn-ghost btn-interact disabled:opacity-50 transition-all hover:border-[var(--border-strong)]" title="Refresh"><RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} /></button>
+                                <div className="flex border border-[var(--border)] rounded-[var(--radius)] overflow-hidden">
+                                    <button type="button" onClick={() => exportData('csv')} className="px-4 py-2.5 text-sm btn-ghost btn-interact border-r border-[var(--border)] font-medium">CSV</button>
+                                    <button type="button" onClick={() => exportData('json')} className="px-4 py-2.5 text-sm btn-ghost btn-interact font-medium">JSON</button>
+                                </div>
+                                <button type="button" onClick={() => setShowSettings(true)} className="p-2.5 border border-[var(--border)] rounded-[var(--radius)] btn-ghost btn-interact transition-all hover:border-[var(--border-strong)]"><Settings size={20} /></button>
+                                <button type="button" onClick={() => setShowShortcuts(true)} className="p-2.5 border border-[var(--border)] rounded-[var(--radius)] btn-ghost btn-interact transition-all hover:border-[var(--border-strong)]" title="Shortcuts (?)"><HelpCircle size={20} /></button>
+                            </div>
+                        </div>
+
+                        <div className="max-w-[1600px] mx-auto mt-6 grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="panel-premium card-hover px-5 py-4 animate-in-up" style={{ animationDelay: '0s', opacity: 0 }}>
+                                <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">24h Volume</div>
+                                <div className="font-mono text-lg font-semibold text-[var(--text)]">${formatCompact(overview.totalVol)}</div>
+                            </div>
+                            <div className="panel-premium card-hover px-5 py-4 animate-in-up" style={{ animationDelay: '0.06s', opacity: 0 }}>
+                                <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Assets</div>
+                                <div className="font-mono text-lg font-semibold text-[var(--text)]">{overview.coinsCount} coins · {overview.predsCount} markets</div>
+                            </div>
+                            <div className="panel-premium card-hover px-5 py-4 animate-in-up" style={{ animationDelay: '0.12s', opacity: 0 }}>
+                                <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Top Gainer</div>
+                                <div className="font-mono text-lg font-semibold cell-positive">{overview.topGainer ? `${overview.topGainer.symbol} ${formatPct(overview.topGainer.change24h)}` : '—'}</div>
+                            </div>
+                            <div className="panel-premium card-hover px-5 py-4 animate-in-up" style={{ animationDelay: '0.18s', opacity: 0 }}>
+                                <div className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Top Loser</div>
+                                <div className="font-mono text-lg font-semibold cell-negative">{overview.topLoser ? `${overview.topLoser.symbol} ${formatPct(overview.topLoser.change24h)}` : '—'}</div>
+                            </div>
+                            <div className="panel-premium card-hover px-5 py-4 flex items-center justify-between animate-in-up" style={{ animationDelay: '0.24s', opacity: 0 }}>
+                                <div><div className="text-xs font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Alerts</div><div className="font-mono text-lg font-semibold text-[var(--text)]">{alerts.length}</div></div>
+                                <button type="button" onClick={() => setShowAlertForm(true)} className="p-2 rounded-[var(--radius)] btn-ghost transition-all" title="Add alert"><Bell size={18} /></button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div className="lg:col-span-8 flex flex-col gap-5">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex border border-[var(--border)] rounded-[var(--radius)] overflow-hidden bg-[var(--bg-card)]">
+                                    {['dashboard', 'predictions', 'watchlist'].map(tab => (
+                                        <button key={tab} type="button" onClick={() => { setActiveTab(tab); setSelectedItem(null); setChartData([]); }} className={`px-5 py-2.5 text-sm font-semibold transition-all ${activeTab === tab ? 'bg-[var(--accent)] text-white' : 'btn-ghost text-[var(--text-secondary)]'}`}>{tab === 'dashboard' ? 'Markets' : tab}</button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+                                        <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-44 md:w-56 pl-10 pr-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius)] text-sm font-mono focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]/20 transition-all" data-search-input />
+                                    </div>
+                                    <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius)] px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[var(--accent)]">
+                                        <option value="default">Default</option><option value="gainers">Gainers</option><option value="losers">Losers</option><option value="volume">Volume</option>
+                                    </select>
+                                    <div className="flex border border-[var(--border)] rounded-[var(--radius)] overflow-hidden bg-[var(--bg-card)]">
+                                        <button type="button" onClick={() => setViewMode('table')} className={`p-2.5 transition-all ${viewMode === 'table' ? 'bg-[var(--bg-hover)] text-[var(--text)]' : 'btn-ghost'}`} title="Table"><Table2 size={18} /></button>
+                                        <button type="button" onClick={() => setViewMode('heatmap')} className={`p-2.5 transition-all ${viewMode === 'heatmap' ? 'bg-[var(--bg-hover)] text-[var(--text)]' : 'btn-ghost'}`} title="Heatmap"><LayoutGrid size={18} /></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="panel-premium card-hover overflow-hidden flex-1 min-h-[420px]">
+                                {viewMode === 'heatmap' && activeTab === 'dashboard' ? (
+                                    <div className="p-4">
+                                        <div className="text-xs text-zinc-500 mb-3">24h change heatmap</div>
+                                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                                            {heatmapData.map(({ symbol, change }, hi) => (
+                                                <div key={symbol} className="heat-cell rounded-[var(--radius)] border border-[var(--border)] px-3 py-2.5 text-center bg-[var(--bg-card)] animate-list-item" style={{ background: change >= 0 ? `rgba(16,185,129,${Math.min(0.35, change / 100)})` : `rgba(244,63,94,${Math.min(0.35, -change / 100)})`, color: change >= 0 ? 'var(--positive)' : 'var(--negative)', animationDelay: `${Math.min(hi * 0.02, 0.35)}s` }}>
+                                                    <div className="font-mono text-xs font-semibold">{symbol}</div>
+                                                    <div className="font-mono text-xs num">{formatPct(change)}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : isLoading && activeTab !== 'watchlist' ? (
+                                    <div className="divide-y divide-[var(--border)]">{[...Array(10)].map((_, i) => <SkeletonRow key={i} />)}</div>
+                                ) : activeTab === 'watchlist' ? (
+                                    <div className="divide-y divide-[var(--border)]">
+                                        <div className="px-4 py-2 bg-[var(--bg-surface)] text-xs font-mono text-zinc-500 uppercase">Watched coins</div>
+                                        {(processedList.coins || []).length === 0 && <div className="p-8 text-center text-zinc-500 text-sm">No coins in watchlist.</div>}
+                                        {(processedList.coins || []).map((c, idx) => <ListItem key={c.symbol} item={c} type="coin" index={idx} />)}
+                                        <div className="px-4 py-2 bg-[var(--bg-surface)] text-xs font-mono text-zinc-500 uppercase border-t border-[var(--border)]">Watched predictions</div>
+                                        {(processedList.preds || []).length === 0 && <div className="p-8 text-center text-zinc-500 text-sm">No predictions in watchlist.</div>}
+                                        {(processedList.preds || []).map((p, idx) => <ListItem key={p.id} item={p} type="prediction" index={idx} />)}
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-[var(--border)]">
+                                        {activeTab === 'dashboard' && <div className="px-4 py-2 bg-[var(--bg-surface)] text-xs font-mono text-zinc-500 flex justify-between sticky top-0 z-10"><span>Asset</span><span className="w-28 text-right">Price · 24h</span></div>}
+                                        {Array.isArray(processedList) && processedList.length === 0 ? (
+                                            <div className="p-12 text-center text-zinc-500 text-sm">{!apiKey.trim() ? 'Enter API key to load data.' : 'No results.'}</div>
+                                        ) : Array.isArray(processedList) && processedList.map((item, idx) => <ListItem key={activeTab === 'dashboard' ? item.symbol : item.id} item={item} type={activeTab === 'dashboard' ? 'coin' : 'prediction'} index={idx} />)}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <aside className="lg:col-span-4 space-y-5">
+                            <div className="panel-premium card-hover sticky top-6 flex flex-col">
+                                <div className="p-5 border-b border-[var(--border)] flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center"><Brain size={20} className="text-[var(--accent)]" /></div>
+                                    <h2 className="font-bold text-base tracking-tight">Analysis</h2>
+                                </div>
+                                <div className="p-5 flex-1 flex flex-col min-h-0">
+                                    {!analysisResult ? (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] text-sm py-14"><Zap size={40} className="opacity-20 mb-3" />Select an asset</div>
+                                    ) : (
+                                        <>
+                                            <div className="flex justify-between items-start gap-2 mb-3">
+                                                <div><span className="text-xs font-mono text-zinc-500 uppercase">{analysisResult.type}</span><h3 className="font-semibold text-sm mt-0.5">{analysisResult.target}</h3></div>
+                                                <button type="button" onClick={runAiAnalysis} disabled={isAiLoading} className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium btn-primary btn-interact disabled:opacity-50">{isAiLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}{isAiLoading ? 'Running…' : 'AI'}</button>
+                                            </div>
+                                            {isDetailLoading ? <div className="h-40 rounded border border-[var(--border)] flex items-center justify-center"><RefreshCw size={24} className="animate-spin text-zinc-600" /></div> : (
+                                                <>
+                                                    <div className="flex gap-2 mb-2">
+                                                        <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1 text-xs font-mono"><option value="area">Area</option><option value="line">Line</option></select>
+                                                        <select value={chartTimeframe} onChange={(e) => setChartTimeframe(e.target.value)} className="bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1 text-xs font-mono"><option value="1h">1H</option><option value="24h">24H</option></select>
+                                                        <button type="button" onClick={() => setFullScreenChart(true)} className="ml-auto p-1.5 rounded btn-ghost" title="Full screen"><Maximize2 size={14} /></button>
+                                                    </div>
+                                                    <div className="mb-3" style={{ height: 180 }}><ChartBlock height={180} /></div>
+                                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                                        <div className="rounded border border-[var(--border)] p-2 bg-[var(--bg-surface)]"><span className="text-xs text-zinc-500">Signal</span><div className="font-mono text-sm font-medium">{analysisResult.sentiment}</div></div>
+                                                        <div className="rounded border border-[var(--border)] p-2 bg-[var(--bg-surface)]"><span className="text-xs text-zinc-500">Risk</span><div className={`font-mono text-sm font-medium ${analysisResult.riskScore > 70 ? 'cell-negative' : 'cell-positive'}`}>{analysisResult.riskScore}/100</div></div>
+                                                    </div>
+                                                    <div className="rounded border border-[var(--border)] p-3 bg-[var(--bg-surface)]">
+                                                        <div className="text-xs text-zinc-500 mb-1">Prediction</div>
+                                                        <div className="font-mono font-semibold mb-1">{analysisResult.prediction}</div>
+                                                        <p className="text-xs text-zinc-400">{analysisResult.details}</p>
+                                                        {!analysisResult.isAi && <button type="button" onClick={() => setShowResultModal(true)} className="mt-2 text-xs text-[var(--accent)] hover:underline">View full</button>}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {compareList.length > 0 && (
+                                <div className="panel-premium p-5">
+                                    <div className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-3">Compare</div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {compareList.map(x => (
+                                            <div key={x.id} className="rounded border border-[var(--border)] p-3 bg-[var(--bg-surface)]">
+                                                <div className="font-mono text-sm font-medium truncate">{x.symbol || x.question?.slice(0, 12) || `#${x.id}`}</div>
+                                                {x.type === 'coin' && <div className="text-xs text-zinc-500 mt-1">${formatPrice(x.price || x.currentPrice)} · <span className={Number(x.change24h) >= 0 ? 'cell-positive' : 'cell-negative'}>{formatPct(x.change24h)}</span></div>}
+                                                <button type="button" onClick={(e) => addToCompare(e, x, x.type)} className="mt-2 text-xs text-zinc-500 hover:text-[var(--negative)]">Remove</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {showAlertForm && selectedItem && selectedItem.type === 'coin' && (
+                                <div className="panel-premium p-5">
+                                    <div className="text-xs font-mono text-[var(--text-tertiary)] uppercase tracking-wider mb-2">New price alert</div>
+                                    <form onSubmit={(e) => { e.preventDefault(); const f = e.target; const cond = f.condition.value; const val = f.value.value; if (val) addAlert(selectedItem.symbol, cond, val); }} className="space-y-2">
+                                        <div className="flex gap-2"><select name="condition" className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1.5 text-sm font-mono"><option value="above">Above</option><option value="below">Below</option></select><input name="value" type="number" step="any" placeholder="Price" className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded px-2 py-1.5 text-sm font-mono" required /></div>
+                                        <div className="flex gap-2"><button type="submit" className="btn-primary px-3 py-1.5 rounded text-sm">Add</button><button type="button" onClick={() => setShowAlertForm(false)} className="btn-ghost px-3 py-1.5 rounded text-sm">Cancel</button></div>
+                                    </form>
+                                </div>
+                            )}
+                        </aside>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<RugplayAnalyzer />);
+    </script>
+</body>
+</html>
